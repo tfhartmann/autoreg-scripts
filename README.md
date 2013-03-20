@@ -1,4 +1,4 @@
 autoreg-scripts
 ===============
 
-Scripts that get used with autoreg 
+Scripts used with autoreg 
