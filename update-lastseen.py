@@ -5,9 +5,15 @@
 # summary: Poll netmri for last seen data
 # description "Poll NetMRI for Last Seen data and format it in such a way that it's useful to autoreg"
 
-import urllib, urllib2, cookielib
-import json,socket,redis,argparse
-import os,sys,re
+import urllib
+import urllib2
+import cookielib
+import json
+import socket
+import argparse
+import os
+import sys
+import re
 
 # Unset https_proxy env var
 del os.environ['https_proxy']
@@ -17,17 +23,30 @@ parser = argparse.ArgumentParser(description='Update Last Seen Data from NetMRI 
        
 parser.add_argument('--debug', dest='DEBUG', action='store_true',
     help='Echo debug output to stdout')
+
+parser.add_argument('-H', '--host', dest='mri_url', action='store',
+    required='True', metavar='https://netmri.example.com',
+    help='Base URL for NetMRI')
+
+parser.add_argument('-u', '--user', dest='mri_user', action='store',
+    required='True', metavar='username',
+    help='username that has API access')
+
+parser.add_argument('-p', '--password', dest='mri_password', action='store',
+    required='True', metavar='Password1234',
+    help='username that has API access')
        
 args = parser.parse_args()
 
 
+
 # NetMRI Configs
-mri_ver  = '/api/2.6'
-#mri_qry  = mri_ver+'/devices/index.json?limit=5000'
-mri_qry  = mri_ver+'/spm_end_hosts_default_grids/index.json?limit=50000'
-mri_url  = 'https://netmri.example.com'
-mri_user = 'username'
-mri_passwd = 'password1234'
+mri_ver    = '/api/2.6'
+#mri_qry    = mri_ver+'/devices/index.json?limit=5000'
+mri_qry    = mri_ver+'/spm_end_hosts_default_grids/index.json?limit=50000'
+mri_url    = args.mri_url
+mri_user   = args.mri_user
+mri_passwd = args.mri_password
 
 def discoverNetMRI (base_url, query, user, passwd):
     # discoverNetMRI returns a dict
