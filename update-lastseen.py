@@ -8,7 +8,7 @@
 import urllib
 import urllib2
 import cookielib
-import json
+import simplejson as json
 import socket
 import argparse
 import os
@@ -43,19 +43,23 @@ args = parser.parse_args()
 # NetMRI Configs
 mri_ver    = '/api/2.6'
 #mri_qry    = mri_ver+'/devices/index.json?limit=5000'
-mri_qry    = mri_ver+'/spm_end_hosts_default_grids/index.json?limit=50000'
+mri_qry    = mri_ver+'/spm_end_hosts_default_grids/index.json'
 mri_url    = args.mri_url
 mri_user   = args.mri_user
 mri_passwd = args.mri_password
 
 def discoverNetMRI (base_url, query, user, passwd):
     # discoverNetMRI returns a dict
-    authurl  = base_url+'/api/authenticate.json?username='+user+'&'+'password='+passwd
+    data       = {}
+    authurl    = base_url+'/api/authenticate.json?username='+user+'&'+'password='+passwd
+    limit      = 5000
+    count      = 0
+    total      = 0
     COOKIEFILE = '/tmp/cookies.lwp'
-    urlopen = urllib2.urlopen
-    Request = urllib2.Request
-    txdata = None
-    cj = cookielib.LWPCookieJar()
+    urlopen    = urllib2.urlopen
+    Request    = urllib2.Request
+    txdata     = None
+    cj         = cookielib.LWPCookieJar()
    
     if cj is not None:
         if os.path.isfile(COOKIEFILE):
@@ -86,10 +90,21 @@ def discoverNetMRI (base_url, query, user, passwd):
     cj.save(COOKIEFILE)
    
     try:
-        raw_data = urllib2.urlopen(base_url + query)
-        for line in raw_data:
-            data = json.loads(line)
+        get_total = urllib2.urlopen(base_url+query+'?limit=1')
+        for line in get_total:
+            total = json.loads(line)
+            total = total['total']
+            #while ( count + limit < total ):
+            while ( count + limit <= 15000 ):
+                print 'start:', count
+                raw_data = urllib2.urlopen(base_url+query+'?limit='+str(limit)+'&start='+str(count))
+                for line in raw_data:
+                    data = json.loads(line)
+                    #print data['total']
+                    #print data['start']
+                    count = count + limit
         return data
+
     except IOError, e:
         print 'We failed to open "%s".' % authurl
         if hasattr(e, 'code'):
@@ -128,14 +143,24 @@ print header2
 
 # Debug output for Testing
 for k,v in devices.iteritems():
-    lastseen = {}
+#    lastseen = {}
     if args.DEBUG == True:
         print '########'
-        print k
-    print [v].items()
-   
+#        print k
+#    print [v].items()
+#   
     if args.DEBUG == True:
         for a, b in devices[k].iteritems():
-            print a, b
+            if b == False:
+                #print "- mark - B was false"
+                b = ''
+            elif isinstance( b, int ):
+                #print "- mark - B is an Int"
+                b = b
+                print a, b
+            else:
+                #print "- mark - Fell"
+                print a, b
+            #print a, b
         print '########'
 
