@@ -51,6 +51,7 @@ mri_passwd = args.mri_password
 def discoverNetMRI (base_url, query, user, passwd):
     # discoverNetMRI returns a dict
     data       = {}
+    database   = {}
     authurl    = base_url+'/api/authenticate.json?username='+user+'&'+'password='+passwd
     limit      = 5000
     count      = 0
@@ -94,16 +95,18 @@ def discoverNetMRI (base_url, query, user, passwd):
         for line in get_total:
             total = json.loads(line)
             total = total['total']
-            #while ( count + limit < total ):
-            while ( count + limit <= 15000 ):
-                print 'start:', count
+            print "Before Loop Count:", count, "Total:", total
+            while ( count < total ):
+                print count, "is less then", total
+                print base_url+query+'?limit='+str(limit)+'&start='+str(count)
                 raw_data = urllib2.urlopen(base_url+query+'?limit='+str(limit)+'&start='+str(count))
                 for line in raw_data:
                     data = json.loads(line)
-                    #print data['total']
-                    #print data['start']
-                    count = count + limit
-        return data
+                    db = devicesNetMRI (data)
+                    database = dict(db.items() + database.items())
+                    count = len(database.keys())
+                    print "Elements in Dict:", len(database.keys())
+        return database
 
     except IOError, e:
         print 'We failed to open "%s".' % authurl
@@ -123,15 +126,15 @@ def devicesNetMRI ( data ):
     for k, v in data.iteritems():
         if k == 'spm_end_hosts_default_grids':
             for item in v:
-                key = item['NeighborMAC'].split('.')
-                database.update({key[0]: item})
+                key = item['id']
+                database.update({key: item})
     return database
 # End devicesNetMRI
 
 
 
-raw = discoverNetMRI(mri_url, mri_qry, mri_user, mri_passwd )
-devices = devicesNetMRI (raw) 
+devices = discoverNetMRI(mri_url, mri_qry, mri_user, mri_passwd )
+#devices = devicesNetMRI (raw) 
 
 header1 = "mac_lan\tmac_host\tmac_address\tmac_port\tip_address\tip_host\tip_int\tage"
 header2 = "vlan\thost\t\tmac\t\tport\t0.0.0.0\tDNE\tDNE\tDNE"
@@ -146,17 +149,16 @@ for k,v in devices.iteritems():
 #    lastseen = {}
     if args.DEBUG == True:
         print '########'
-#        print k
+        print k
 #    print [v].items()
 #   
     if args.DEBUG == True:
         for a, b in devices[k].iteritems():
             if b == False:
                 #print "- mark - B was false"
-                b = ''
-            elif isinstance( b, int ):
-                #print "- mark - B is an Int"
-                b = b
+                b = 'DNE'
+            elif isinstance( b, unicode ):
+                b = b.encode('ascii', 'ignore')
                 print a, b
             else:
                 #print "- mark - Fell"
