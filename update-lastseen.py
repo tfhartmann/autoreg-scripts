@@ -14,6 +14,7 @@ import argparse
 import os
 import sys
 import re
+from netaddr import *
 
 # Unset https_proxy env var
 del os.environ['https_proxy']
@@ -47,6 +48,11 @@ mri_qry    = mri_ver+'/spm_end_hosts_default_grids/index.json'
 mri_url    = args.mri_url
 mri_user   = args.mri_user
 mri_passwd = args.mri_password
+
+# ut.dat headers
+header1 = "mac_lan\tmac_host\tmac_address\tmac_port\tip_address\tip_host\tip_int\tage\n"
+header2 = "vlan\thost\t\tmac\t\tport\t0.0.0.0\tDNE\tDNE\tDNE"
+
 
 def discoverNetMRI (base_url, query, user, passwd):
     # discoverNetMRI returns a dict
@@ -102,7 +108,7 @@ def discoverNetMRI (base_url, query, user, passwd):
                 raw_data = urllib2.urlopen(base_url+query+'?limit='+str(limit)+'&start='+str(count))
                 for line in raw_data:
                     data = json.loads(line)
-                    db = devicesNetMRI (data)
+                    db = cleanNetMRI (data)
                     database = dict(db.items() + database.items())
                     count = len(database.keys())
                     print "Elements in Dict:", len(database.keys())
@@ -120,13 +126,22 @@ def discoverNetMRI (base_url, query, user, passwd):
         sys.exit()
 # End discoverNetMRI
 
-def devicesNetMRI ( data ):
-    # take data from NetMRI's /api/2.4/devices API and cook it
+def cleanNetMRI ( data ):
+    # take data from NetMRI's api API and cook it
     database = {}
     for k, v in data.iteritems():
         if k == 'spm_end_hosts_default_grids':
             for item in v:
                 key = item['id']
+
+                for a, b in item.iteritems():
+                    if b == False:
+                        b = 'DNE'
+                        item.update({a: b})
+                    elif isinstance( b, unicode ):
+                        b = b.encode('ascii', 'ignore')
+                        item.update({a: b})
+
                 database.update({key: item})
     return database
 # End devicesNetMRI
@@ -136,33 +151,36 @@ def devicesNetMRI ( data ):
 devices = discoverNetMRI(mri_url, mri_qry, mri_user, mri_passwd )
 #devices = devicesNetMRI (raw) 
 
-header1 = "mac_lan\tmac_host\tmac_address\tmac_port\tip_address\tip_host\tip_int\tage"
-header2 = "vlan\thost\t\tmac\t\tport\t0.0.0.0\tDNE\tDNE\tDNE"
-
-print header1
-print header2
-#print devices
 
 
 # Debug output for Testing
 for k,v in devices.iteritems():
-#    lastseen = {}
     if args.DEBUG == True:
         print '########'
         print k
-#    print [v].items()
-#   
+    for a, b in devices[k].iteritems():
+        if args.DEBUG == True:
+            print a,b
+
     if args.DEBUG == True:
-        for a, b in devices[k].iteritems():
-            if b == False:
-                #print "- mark - B was false"
-                b = 'DNE'
-            elif isinstance( b, unicode ):
-                b = b.encode('ascii', 'ignore')
-                print a, b
-            else:
-                #print "- mark - Fell"
-                print a, b
-            #print a, b
         print '########'
 
+
+def main( header, data  ):
+    print header
+
+    for k,v in data.iteritems():
+        name  = data[k]['DeviceName'].split('.')
+        mac   = EUI(data[k]['NeighborMAC'])
+        mac.dialect = mac_bare
+
+        iface = data[k]['Interface'].split('-')
+
+        print data[k]['VlanID'],'\t', \
+              name[0],'\t', \
+              str(mac).lower(),'\t', \
+              iface[0],'\t', \
+              data[k]['NeighborIPDotted'],'\t', \
+              'DNE','\t','DNE','\t','DNE'
+
+main ( header1+header2, devices )
